@@ -14,6 +14,9 @@
         'security/purchase_request_security.xml',
         'security/purchase_order_security.xml',
         'security/ir.model.access.xml',
+        'reports/report_purchase_request.xml',
+        'reports/purchase_order_report.xml',
+        'views/purchase_request_report.xml',
         'views/purchase_order.xml',
         'views/purchase_request.xml',
         'views/purchase_request_line.xml'

@@ -138,7 +138,10 @@ class PurchaseRequest(models.Model):
                 super(PurchaseRequest, self).button_draft()
             else:
                 raise ValidationError("El requerimiento esta asociado a una OC no cancelada")
-            
+    
+    def print_report_purchase_request(self):
+        return self.env.ref('ind_purchase_request.action_indomin_report_purchase_requests').report_action(self)
+    
     @api.depends('line_ids.request_state')
     def rechazar_requerimiento(self):
         for request in self:

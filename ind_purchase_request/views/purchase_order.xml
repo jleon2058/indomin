@@ -18,7 +18,8 @@
             </xpath>
             <xpath expr="//field[@name='currency_id']" position="after">
                 <field name="view_notes"/>
-                <field name="currency_rate"/>
+                <field name="inverse_rate" attrs="{'readonly': [('state', 'not in', ('draft', 'sent', 'to approve'))]}"/>
+                <field name="fake_inverse_rate" invisible="1"/>
             </xpath>
             <xpath expr="//field[@name='price_unit']" position="attributes">
                 <attribute name="groups">

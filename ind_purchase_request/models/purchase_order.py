@@ -1,4 +1,4 @@
-from odoo import api,fields,models
+from odoo import api,fields,models,_
 from odoo.exceptions import ValidationError
 
 class PurchaseOrder(models.Model):
@@ -16,11 +16,15 @@ class PurchaseOrder(models.Model):
         index=True,
     )
 
-    currency_rate = fields.Float(
-        string="Tipo de Cambio",
-        compute="_compute_currency_rate",
-        help="Tipo de cambio según la fecha de la orden y la moneda seleccionada.",
-    )
+    # currency_rate = fields.Float(
+    #     string="Tipo de Cambio",
+    #     compute="_compute_currency_rate",
+    #     help="Tipo de cambio según la fecha de la orden y la moneda seleccionada.",
+    # )
+
+    inverse_rate = fields.Float("Tipo de cambio", compute="_compute_date_currency_rate", 
+                                compute_sudo=True, store=True, readonly=False, digits=(9, 3))
+    fake_inverse_rate = fields.Float("Tipo de cambio falso", store=True, digits=(9,3))
 
     view_notes = fields.Boolean(string='Imprimir notas', default=True)
     
@@ -50,19 +54,55 @@ class PurchaseOrder(models.Model):
             result['res_id'] = rfqs.id
         return result
     
-    @api.depends('currency_id', 'date_order')
-    def _compute_currency_rate(self):
-        for order in self:
-            if order.currency_id != order.company_id.currency_id:
-                # Obtenemos el tipo de cambio según la moneda y la fecha de la orden
-                order.currency_rate = order.currency_id._get_conversion_rate(
-                    order.company_id.currency_id,
-                    order.currency_id,
-                    order.company_id,
-                    order.date_order or fields.Date.today()
-                )
+    # @api.depends('currency_id', 'date_order')
+    # def _compute_currency_rate(self):
+    #     for order in self:
+    #         if order.currency_id != order.company_id.currency_id:
+    #             # Obtenemos el tipo de cambio según la moneda y la fecha de la orden
+    #             order.currency_rate = order.currency_id._get_conversion_rate(
+    #                 order.company_id.currency_id,
+    #                 order.currency_id,
+    #                 order.company_id,
+    #                 order.date_order or fields.Date.today()
+    #             )
+    #         else:
+    #             order.currency_rate = 1.0  # No hay cambio si la moneda es la misma que la de la compañía
+
+    def button_update_currency_rate(self):
+        datetime_today = datetime.now()
+        datetime_today = int(datetime_today.strftime('%Y%m%d%H%M%S'))
+        purchase_order_to_update = self.search([('state', '=', 'purchase')])
+        for purchase_order in purchase_order_to_update:
+            purchase_order.fake_inverse_rate = datetime_today
+    
+    @api.depends('date_approve', 'date_order', 'currency_id', 'company_id', 'company_id.currency_id', 'fake_inverse_rate')
+    def _compute_date_currency_rate(self):
+        for record in self:
+            if record.currency_id.name == 'PEN':
+                record.inverse_rate = 1
+                continue
+
+            date = record.date_approve or record.date_order
+            if date:
+                # Obtener la tasa de cambio para la fecha actual
+                currency_id = record.currency_id.id
+                company_id = record.company_id.id
+
+                # Obtener la tasa de cambio para la fecha de aprobación o de orden
+                currency_rate = self.env['res.currency.rate'].search(
+                    [('currency_id', '=', currency_id),
+                     ('name', '=', date),
+                     ('company_id', '=', company_id)],
+                    limit=1)
+
+                if currency_rate:
+                    rate = round(1.0 / currency_rate.rate, 3)
+                    record.inverse_rate = rate
+                else:
+                    raise ValidationError(_('No se ha encontrado tipo de cambio a la fecha para la OC: %s') % record.name)
             else:
-                order.currency_rate = 1.0  # No hay cambio si la moneda es la misma que la de la compañía
+                record.inverse_rate = 0
+
 
     @api.depends('purchase_request_related')
     def _compute_rfq_count(self):
