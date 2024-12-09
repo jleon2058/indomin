@@ -16,11 +16,11 @@ class StockPicking(models.Model):
             readonly=True
             )
     
-    account_analytic_id = fields.Many2one(
-        comodel_name="account.analytic.account",
-        string="Analytic Account",
-        tracking=True,
-    )
+    # account_analytic_id = fields.Many2one(
+    #     comodel_name="account.analytic.account",
+    #     string="Analytic Account",
+    #     tracking=True,
+    # )
     
     # account_move_id=fields.Integer(string="Id Factura",compute="get_account_move_id",store=True)
 
@@ -101,26 +101,28 @@ class StockPicking(models.Model):
                     if pendiente_quantity > 0:
                         # Extract the first analytic account from the JSON field
                         analytic_distribution = move_ids_without_package.purchase_line_id.analytic_distribution
-                        account_analytic_id = False
+                        #account_analytic_id = False
+
                         if analytic_distribution:
-                            first_analytic_account = list(analytic_distribution.keys())[0]
-                            account_analytic_id = int(first_analytic_account)
-                        
-                        vals = (0, 0, {
-                            'name': move_ids_without_package.description_picking,
-                            'product_id': move_ids_without_package.product_id.id,
-                            'price_unit': move_ids_without_package.purchase_line_id.price_unit,
-                            'account_analytic_id': account_analytic_id,
-                            'product_uom_id': move_ids_without_package.purchase_line_id.product_uom.id,
-                            'account_id': move_ids_without_package.product_id.property_account_expense_id.id if move_ids_without_package.product_id.property_account_expense_id
-                            else move_ids_without_package.product_id.categ_id.property_account_expense_categ_id.id,
-                            'discount': move_ids_without_package.purchase_line_id.discount,
-                            'tax_ids': [(6, 0, move_ids_without_package.purchase_line_id.taxes_id.ids)],
-                            'quantity': pendiente_quantity,
-                            'purchase_line_id': move_ids_without_package.purchase_line_id.id,
-                            'stock_move_id': move_ids_without_package.id
-                        })
-                        invoice_line_list.append(vals)
+                            #first_analytic_account = list(analytic_distribution.keys())[0]
+                            #account_analytic_id = int(first_analytic_account)
+                            analytic_distribution_vals = analytic_distribution if analytic_distribution else {}
+                            vals = (0, 0, {
+                                'name': move_ids_without_package.description_picking,
+                                'product_id': move_ids_without_package.product_id.id,
+                                'price_unit': move_ids_without_package.purchase_line_id.price_unit,
+                                #'account_analytic_id': account_analytic_id,
+                                'analytic_distribution': move_ids_without_package.analytic_distribution,
+                                'product_uom_id': move_ids_without_package.purchase_line_id.product_uom.id,
+                                'account_id': move_ids_without_package.product_id.property_account_expense_id.id if move_ids_without_package.product_id.property_account_expense_id
+                                else move_ids_without_package.product_id.categ_id.property_account_expense_categ_id.id,
+                                'discount': move_ids_without_package.purchase_line_id.discount,
+                                'tax_ids': [(6, 0, move_ids_without_package.purchase_line_id.taxes_id.ids)],
+                                'quantity': pendiente_quantity,
+                                'purchase_line_id': move_ids_without_package.purchase_line_id.id,
+                                'stock_move_id': move_ids_without_package.id
+                            })
+                            invoice_line_list.append(vals)
                 
                 invoice = picking_id.env['account.move'].create({
                     'move_type': 'in_invoice',
@@ -186,6 +188,8 @@ class StockPicking(models.Model):
                                 else:
                                     pendiente_quantity=move_ids_without_package.quantity_done
                                 if pendiente_quantity>0:
+                                    logger.warning("--------pendiente_quantitys-------")
+                                    logger.warning(move_ids_without_package.analytic_distribution)
                                     vals = (0, 0, {
                                         'name':
                                             move_ids_without_package.description_picking
@@ -195,8 +199,9 @@ class StockPicking(models.Model):
                                         # 'price_unit': move_ids_without_package.
                                         #     product_id.lst_price,
                                         'price_unit': move_ids_without_package.purchase_line_id.price_unit,
-                                        'account_analytic_id': move_ids_without_package.purchase_line_id.account_analytic_id,
-                                        'product_uom_id': move_ids_without_package.purchase_line_id.product_uom,
+                                        'analytic_distribution': move_ids_without_package.analytic_distribution,
+                                        #'account_analytic_id': move_ids_without_package.purchase_line_id.account_analytic_id,
+                                        'product_uom_id': move_ids_without_package.purchase_line_id.product_uom.id,
                                         'account_id': move_ids_without_package.product_id.property_account_expense_id.id if move_ids_without_package.product_id.property_account_expense_id
                                         else move_ids_without_package.product_id.categ_id.property_account_expense_categ_id.id,
                                         # 'tax_ids': [(6, 0, [picking_id.company_id.
@@ -231,7 +236,9 @@ class StockPicking(models.Model):
             #elif self.picking_type_id.code == 'incoming':
                 logger.warning("--------incoming-------")
                 partner = list(self.partner_id)
+                logger.warning(partner)
                 if all(first == partner[0] for first in partner):
+                    logger.warning("-------if_all------")
                     partner_id = self.partner_id
                     bill_line_list = []
                     vendor_journal_id = \
@@ -242,6 +249,7 @@ class StockPicking(models.Model):
                         raise UserError(_("Please configure the journal from "
                                             "the settings."))
                     for picking_id in self:
+                        logger.warning("------picki_in_self-----")
                         for move_ids_without_package in picking_id.\
                                 move_ids_without_package:
                             if move_ids_without_package.state=='done':
@@ -251,7 +259,8 @@ class StockPicking(models.Model):
                                 else:
                                     pendiente_quantity=move_ids_without_package.quantity_done
                                 if pendiente_quantity>0:
-
+                                    logger.warning("-----pendient----")
+                                    logger.warning(move_ids_without_package.analytic_distribution)
                                     vals = (0, 0, {
                                         'name':
                                             move_ids_without_package.description_picking
@@ -261,8 +270,9 @@ class StockPicking(models.Model):
                                         # 'price_unit': move_ids_without_package.
                                         #     product_id.lst_price,
                                         'price_unit': move_ids_without_package.purchase_line_id.price_unit,
-                                        'account_analytic_id': move_ids_without_package.purchase_line_id.account_analytic_id,
-                                        'product_uom_id': move_ids_without_package.purchase_line_id.product_uom,
+                                        'analytic_distribution': move_ids_without_package.analytic_distribution,
+                                        #'account_analytic_id': move_ids_without_package.purchase_line_id.account_analytic_id,
+                                        'product_uom_id': move_ids_without_package.purchase_line_id.product_uom.id,
                                         'account_id': move_ids_without_package.
                                             product_id.property_account_expense_id.id if
                                         move_ids_without_package.product_id.
