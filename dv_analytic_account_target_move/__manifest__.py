@@ -21,7 +21,7 @@
     'license': 'LGPL-3',
 
     'category': 'Accounting',
-    'version': '15.0',
+    'version': '16.0',
 
     'price': 49.99,
     'currency': 'EUR',
